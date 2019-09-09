@@ -1,0 +1,50 @@
+---
+- hosts: localhost
+  connection: ssh
+  remote_user: test
+  become: yes
+  tasks:
+     - name: Installing packages
+       yum:
+          name: "{{ packages }}"
+          state: present
+       vars:
+           packages:
+                 - php
+                 - httpd
+                 - git  
+     - name: Checking PHP and apache2 version
+       command: php -v && httpd -v
+       register: php_version
+     - debug:
+         var: php_version
+     - name: Createing test user
+       user:
+         name: test
+         shell: /bin/bash
+         create_home: True
+     - name: Adding test user into the sudoers file
+       shell: /etc/ansible/useradd.sh
+     - name: check service and restart if not running.
+       service:
+          name: httpd
+          state: started
+       register: service_status
+     - debug:
+         var: service_status
+     - name: cloning git repo
+       git:
+         repo: https://github.com/do-community/do-ansible-adv-php
+         dest: /var/www/gnk/
+         force: yes
+     - name: change permissions
+       file:
+          path: /var/www/gnk/
+          state: directory
+          mode: 0755
+          owner: test
+          group: test
+          recurse: yes
+     - name: restarting service
+       shell: su - test; sudo service  httpd  restart
+
